@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Pin Circuit Simulation</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for Myanmar & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Padauk:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', 'Padauk', sans-serif;
+            background-color: #030712;
+            color: #f8fafc;
+            user-select: none;
+        }
+        canvas {
+            touch-action: none;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.8);
+        }
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-3 sm:p-6 bg-slate-950">
+
+    <!-- Header -->
+    <header class="w-full max-w-6xl mb-4 flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-800 pb-4">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-sky-400 flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-amber-400"></i> Detection Line Circuit Simulation
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+                2.2K Pull-up Resistor အပါအဝင် Detect Pin လျှပ်စစ်စီးဆင်းမှု အန်နီမေးရှင်း
+            </p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span id="statusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> <span id="statusText">Detect OPEN (CPU ➔ 1.8V Input)</span>
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-6xl flex flex-col items-center gap-4">
+        
+        <!-- Controls Bar -->
+        <div class="w-full bg-slate-900/90 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-wrap justify-between items-center gap-4 backdrop-blur-md">
+            
+            <!-- Switch Toggle Button -->
+            <div class="flex items-center gap-3">
+                <button id="toggleSwitchBtn" class="bg-amber-600 hover:bg-amber-500 active:scale-95 transition-all text-white px-5 py-2.5 rounded-lg font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-amber-600/30">
+                    <i id="switchIcon" class="fa-solid fa-toggle-off text-lg"></i>
+                    <span id="switchBtnText">Detect Pin နှိပ်ရန် (Connect GND)</span>
+                </button>
+            </div>
+
+            <!-- Animation Controls -->
+            <div class="flex items-center gap-4 flex-wrap">
+                <button id="playPauseBtn" class="bg-sky-600 hover:bg-sky-500 active:scale-95 transition-all text-white px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-sky-600/30">
+                    <i id="playIcon" class="fa-solid fa-pause"></i> <span id="playBtnText">Pause Flow</span>
+                </button>
+
+                <div class="flex items-center gap-3 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800">
+                    <span class="text-xs text-slate-400 font-medium"><i class="fa-solid fa-gauge-high text-sky-400"></i> Speed:</span>
+                    <input id="speedSlider" type="range" min="0.2" max="3" step="0.1" value="1" class="w-20 sm:w-28 custom-slider accent-sky-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    <span id="speedVal" class="text-xs text-sky-300 font-bold w-8 text-center">1.0x</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Canvas -->
+        <div class="w-full relative aspect-[16/9] bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex items-center justify-center p-1 sm:p-2">
+            <canvas id="circuitCanvas" class="w-full h-full rounded-xl bg-slate-950"></canvas>
+        </div>
+
+        <!-- Explanation Cards -->
+        <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div id="cardState1" class="p-3 bg-slate-900/80 border border-emerald-500/40 rounded-xl transition-all">
+                <h3 class="font-bold text-emerald-400 mb-1 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> အခြေအနေ ၁ - Detect OPEN (GND နှင့် မထိထားပါ)
+                </h3>
+                <p class="text-slate-300 leading-relaxed">
+                    Detect Switch ပွင့်နေချိန်တွင် L5_1P8 (1.8V) မှ လျှပ်စစ်သည် **2.2K Resistor** ကို ဖြတ်သန်းကာ **CPU ထဲသို့ စီးဝင်ပါသည်** (1.8V HIGH Signal)။
+                </p>
+            </div>
+
+            <div id="cardState2" class="p-3 bg-slate-900/80 border border-slate-800 opacity-60 rounded-xl transition-all">
+                <h3 class="font-bold text-red-400 mb-1 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-circle-arrow-down"></i> အခြေအနေ ၂ - Detect CLOSED (GND နှင့် ထိထားပါ)
+                </h3>
+                <p class="text-slate-300 leading-relaxed">
+                    Detect Switch ကို GND နှင့် ထိလိုက်ပါက L5_1P8 မှ စီးလာသော လျှပ်စစ်သည် 2.2K Resistor ဖြတ်ပြီး **GND (Ground) ထဲသို့ အပြည့်အဝ စီးဝင်သွားပါသည်** (CPU = 0V Signal)။
+                </p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const canvas = document.getElementById('circuitCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let isGndConnected = false; 
+        let isPlaying = true;
+        let speed = 1.0;
+        let animOffset = 0;
+
+        const BASE_WIDTH = 1000;
+        const BASE_HEIGHT = 500;
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            draw();
+        }
+
+        function drawArrowHead(ctx, x, y, angle, color) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-9, -5);
+            ctx.lineTo(-9, 5);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawPathSignal(points, color, active, speedMult = 1.0) {
+            const scaleX = canvas.clientWidth / BASE_WIDTH;
+            const scaleY = canvas.clientHeight / BASE_HEIGHT;
+
+            const scaled = points.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }));
+
+            let totalDist = 0;
+            const segments = [];
+            for (let i = 0; i < scaled.length - 1; i++) {
+                const p1 = scaled[i];
+                const p2 = scaled[i + 1];
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const len = Math.hypot(dx, dy);
+                segments.push({ p1, p2, dx, dy, len, startDist: totalDist });
+                totalDist += len;
+            }
+
+            // Wire line
+            ctx.beginPath();
+            ctx.moveTo(scaled[0].x, scaled[0].y);
+            for (let i = 1; i < scaled.length; i++) {
+                ctx.lineTo(scaled[i].x, scaled[i].y);
+            }
+            ctx.strokeStyle = active ? color : '#334155';
+            ctx.lineWidth = 2.5 * scaleX;
+            ctx.stroke();
+
+            // Flow Particles
+            if (active && isPlaying && totalDist > 0) {
+                const step = 22 * scaleX;
+                const count = Math.floor(totalDist / step);
+
+                for (let i = 0; i < count; i++) {
+                    let d = (i * step + (animOffset * speed * speedMult * 35 * scaleX)) % totalDist;
+                    if (d < 0) d += totalDist;
+
+                    const seg = segments.find(s => d >= s.startDist && d <= s.startDist + s.len);
+                    if (seg) {
+                        const segProgress = (d - seg.startDist) / seg.len;
+                        const cx = seg.p1.x + seg.dx * segProgress;
+                        const cy = seg.p1.y + seg.dy * segProgress;
+
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, 3.5 * scaleX, 0, Math.PI * 2);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = 8;
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+                }
+            }
+        }
+
+        // Resistor Drawing function
+        function drawResistor(x, y, width, height, label, vertical = false) {
+            const scaleX = canvas.clientWidth / BASE_WIDTH;
+            const scaleY = canvas.clientHeight / BASE_HEIGHT;
+            const rx = x * scaleX;
+            const ry = y * scaleY;
+            const rw = width * scaleX;
+            const rh = height * scaleY;
+
+            ctx.save();
+            ctx.beginPath();
+
+            if (!vertical) {
+                ctx.moveTo(rx, ry);
+                const numPeaks = 5;
+                const step = rw / numPeaks;
+                for (let i = 0; i < numPeaks; i++) {
+                    ctx.lineTo(rx + step * (i + 0.25), ry - rh / 2);
+                    ctx.lineTo(rx + step * (i + 0.75), ry + rh / 2);
+                }
+                ctx.lineTo(rx + rw, ry);
+            } else {
+                ctx.moveTo(rx, ry);
+                const numPeaks = 5;
+                const step = rh / numPeaks;
+                for (let i = 0; i < numPeaks; i++) {
+                    ctx.lineTo(rx - rw / 2, ry + step * (i + 0.25));
+                    ctx.lineTo(rx + rw / 2, ry + step * (i + 0.75));
+                }
+                ctx.lineTo(rx, ry + rh);
+            }
+
+            ctx.strokeStyle = '#f8fafc'; // Clear White Resistor Wire Line
+            ctx.lineWidth = 2.5 * scaleX;
+            ctx.stroke();
+
+            if (label) {
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = `bold ${16 * scaleX}px Inter`;
+                ctx.textAlign = 'left';
+                if (!vertical) {
+                    ctx.fillText(label, rx + rw / 2 - 10 * scaleX, ry + 22 * scaleY);
+                } else {
+                    ctx.fillText(label, rx + 20 * scaleX, ry + rh / 2 + 5 * scaleY);
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawCapacitor(x, y, height, label) {
+            const scaleX = canvas.clientWidth / BASE_WIDTH;
+            const scaleY = canvas.clientHeight / BASE_HEIGHT;
+            const cx = x * scaleX;
+            const cy = y * scaleY;
+            const h = height * scaleY;
+            const w = 16 * scaleX;
+
+            ctx.beginPath();
+            ctx.moveTo(cx - w / 2, cy);
+            ctx.lineTo(cx + w / 2, cy);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2.5 * scaleX;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(cx - w / 2, cy + 8 * scaleY);
+            ctx.lineTo(cx + w / 2, cy + 8 * scaleY);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2.5 * scaleX;
+            ctx.stroke();
+
+            const gy = cy + 8 * scaleY + 20 * scaleY;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy + 8 * scaleY);
+            ctx.lineTo(cx, gy);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(cx - 10 * scaleX, gy);
+            ctx.lineTo(cx + 10 * scaleX, gy);
+            ctx.moveTo(cx - 6 * scaleX, gy + 4 * scaleY);
+            ctx.lineTo(cx + 6 * scaleX, gy + 4 * scaleY);
+            ctx.moveTo(cx - 2 * scaleX, gy + 8 * scaleY);
+            ctx.lineTo(cx + 2 * scaleX, gy + 8 * scaleY);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2 * scaleX;
+            ctx.stroke();
+
+            if (label) {
+                ctx.fillStyle = '#22c55e';
+                ctx.font = `bold ${16 * scaleX}px Inter`;
+                ctx.fillText(label, cx + 18 * scaleX, cy + 10 * scaleY);
+            }
+        }
+
+        function drawGround(x, y) {
+            const scaleX = canvas.clientWidth / BASE_WIDTH;
+            const scaleY = canvas.clientHeight / BASE_HEIGHT;
+            const gx = x * scaleX;
+            const gy = y * scaleY;
+
+            ctx.beginPath();
+            ctx.moveTo(gx, gy);
+            ctx.lineTo(gx + 20 * scaleX, gy);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(gx + 20 * scaleX, gy - 12 * scaleY);
+            ctx.lineTo(gx + 20 * scaleX, gy + 12 * scaleY);
+            ctx.moveTo(gx + 24 * scaleX, gy - 8 * scaleY);
+            ctx.lineTo(gx + 24 * scaleX, gy + 8 * scaleY);
+            ctx.moveTo(gx + 28 * scaleX, gy - 4 * scaleY);
+            ctx.lineTo(gx + 28 * scaleX, gy + 4 * scaleY);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2 * scaleX;
+            ctx.stroke();
+        }
+
+        function drawCPU() {
+            const scaleX = canvas.clientWidth / BASE_WIDTH;
+            const scaleY = canvas.clientHeight / BASE_HEIGHT;
+            const x = 80 * scaleX;
+            const y = 160 * scaleY;
+            const w = 180 * scaleX;
+            const h = 200 * scaleY;
+
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 28 * scaleX);
+            ctx.fillStyle = '#2563eb';
+            ctx.fill();
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2 * scaleX;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${28 * scaleX}px Inter`;
+            ctx.textAlign = 'center';
+            ctx.fillText('CPU', x + w / 2, y + h / 2 + 10 * scaleY);
+
+            ctx.fillStyle = isGndConnected ? '#94a3b8' : '#22c55e';
+            ctx.font = `bold ${14 * scaleX}px Inter`;
+            ctx.textAlign = 'right';
+            ctx.fillText(isGndConnected ? '0V (LOW)' : '1.8V (IN)', x + w - 10 * scaleX, y + h / 2 - 25 * scaleY);
+        }
+
+        function drawDetectSwitch(x, y, connected) {
+            const scaleX = canvas.clientWidth / BASE_WIDTH;
+            const scaleY = canvas.clientHeight / BASE_HEIGHT;
+            const sx = x * scaleX;
+            const sy = y * scaleY;
+
+            ctx.beginPath();
+            ctx.arc(sx, sy, 4 * scaleX, 0, Math.PI * 2);
+            ctx.arc(sx + 40 * scaleX, sy, 4 * scaleX, 0, Math.PI * 2);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            if (connected) {
+                ctx.lineTo(sx + 40 * scaleX, sy);
+            } else {
+                ctx.lineTo(sx + 35 * scaleX, sy - 18 * scaleY);
+            }
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3 * scaleX;
+            ctx.stroke();
+
+            ctx.fillStyle = '#22c55e';
+            ctx.font = `bold ${16 * scaleX}px Inter`;
+            ctx.textAlign = 'center';
+            ctx.fillText('Detect', sx + 20 * scaleX, sy - 25 * scaleY);
+        }
+
+        function draw() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            const scaleX = width / BASE_WIDTH;
+            const scaleY = height / BASE_HEIGHT;
+
+            ctx.fillStyle = '#030712';
+            ctx.fillRect(0, 0, width, height);
+
+            // Grid
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1;
+            const gridSize = 25 * scaleX;
+            for (let x = 0; x < width; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            // --- 1. SIGNAL PATHS ---
+
+            // Path Top L5_1P8 down to 2.2K Resistor Start
+            const pathTop = [
+                { x: 600, y: 50 },
+                { x: 600, y: 110 }
+            ];
+            drawPathSignal(pathTop, '#ef4444', true, 1.0);
+
+            // Path 2.2K Resistor End down to Junction
+            const pathMid = [
+                { x: 600, y: 170 },
+                { x: 600, y: 260 }
+            ];
+            drawPathSignal(pathMid, '#ef4444', true, 1.0);
+
+            // Path INTO CPU (Right to Left) - Active when Switch OPEN
+            const pathCpuIn = [
+                { x: 600, y: 260 },
+                { x: 440, y: 260 },
+                { x: 380, y: 260 },
+                { x: 260, y: 260 }
+            ];
+            drawPathSignal(pathCpuIn, '#22c55e', !isGndConnected, 1.2);
+
+            // Path to Detect Pin -> GND - Active when Switch CLOSED
+            const pathGnd = [
+                { x: 600, y: 260 },
+                { x: 720, y: 260 },
+                { x: 760, y: 260 },
+                { x: 860, y: 260 }
+            ];
+            drawPathSignal(pathGnd, '#ef4444', isGndConnected, 1.2);
+
+            // Path to Capacitor C
+            const pathCap = [
+                { x: 670, y: 260 },
+                { x: 670, y: 310 }
+            ];
+            drawPathSignal(pathCap, '#ef4444', false, 1.0);
+
+
+            // --- 2. COMPONENTS DRAWING ---
+
+            drawCPU();
+            // 2.2K Vertical Resistor Symbol Added Here
+            drawResistor(600, 110, 24, 60, '2.2K', true);
+            
+            // OR Resistor Symbol
+            drawResistor(380, 260, 60, 12, 'OR', false);
+            
+            drawCapacitor(670, 310, 20, 'C');
+            drawDetectSwitch(720, 260, isGndConnected);
+            drawGround(860, 260);
+
+
+            // --- 3. LABELS & ARROWS ---
+
+            ctx.font = `bold ${16 * scaleX}px Inter`;
+
+            // L5_1P8 Title
+            ctx.fillStyle = '#f8fafc';
+            ctx.textAlign = 'center';
+            ctx.fillText('L5_1P8 ( CPU, EMMC, Wifi, etc )', 600 * scaleX, 35 * scaleY);
+
+            // Red Arrow "2" Label
+            ctx.fillStyle = '#ef4444';
+            ctx.font = `bold ${28 * scaleX}px Inter`;
+            ctx.fillText('2', 540 * scaleX, 145 * scaleY);
+            drawArrowHead(ctx, 580 * scaleX, 215 * scaleY, Math.PI / 2, '#ef4444');
+
+            // Green Arrow "1" Label
+            ctx.fillStyle = '#22c55e';
+            ctx.font = `bold ${28 * scaleX}px Inter`;
+            ctx.fillText('1', 480 * scaleX, 225 * scaleY);
+            drawArrowHead(ctx, 320 * scaleX, 260 * scaleY, Math.PI, '#22c55e');
+
+            // 1.8V Label near CPU pin
+            ctx.fillStyle = '#ef4444';
+            ctx.font = `bold ${16 * scaleX}px Inter`;
+            ctx.textAlign = 'right';
+            ctx.fillText('1.8V', 285 * scaleX, 250 * scaleY);
+        }
+
+        function animate() {
+            if (isPlaying) {
+                animOffset += 0.016;
+            }
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            const toggleSwitchBtn = document.getElementById('toggleSwitchBtn');
+            const switchIcon = document.getElementById('switchIcon');
+            const switchBtnText = document.getElementById('switchBtnText');
+            const statusBadge = document.getElementById('statusBadge');
+            const statusText = document.getElementById('statusText');
+            const cardState1 = document.getElementById('cardState1');
+            const cardState2 = document.getElementById('cardState2');
+
+            toggleSwitchBtn.addEventListener('click', () => {
+                isGndConnected = !isGndConnected;
+
+                if (isGndConnected) {
+                    switchIcon.className = 'fa-solid fa-toggle-on text-lg text-emerald-300';
+                    switchBtnText.textContent = 'Detect Pin ဖြုတ်ရန် (Disconnect GND)';
+                    toggleSwitchBtn.className = 'bg-red-600 hover:bg-red-500 active:scale-95 transition-all text-white px-5 py-2.5 rounded-lg font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-red-600/30';
+                    
+                    statusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20';
+                    statusText.textContent = 'Detect CLOSED ➔ GND ထဲစီး (CPU = 0V)';
+
+                    cardState1.className = 'p-3 bg-slate-900/80 border border-slate-800 opacity-60 rounded-xl transition-all';
+                    cardState2.className = 'p-3 bg-slate-900/80 border border-red-500/40 rounded-xl transition-all';
+                } else {
+                    switchIcon.className = 'fa-solid fa-toggle-off text-lg';
+                    switchBtnText.textContent = 'Detect Pin နှိပ်ရန် (Connect GND)';
+                    toggleSwitchBtn.className = 'bg-amber-600 hover:bg-amber-500 active:scale-95 transition-all text-white px-5 py-2.5 rounded-lg font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-amber-600/30';
+
+                    statusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                    statusText.textContent = 'Detect OPEN ➔ CPU ထဲဝင် (CPU = 1.8V Input)';
+
+                    cardState1.className = 'p-3 bg-slate-900/80 border border-emerald-500/40 rounded-xl transition-all';
+                    cardState2.className = 'p-3 bg-slate-900/80 border border-slate-800 opacity-60 rounded-xl transition-all';
+                }
+            });
+
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const playIcon = document.getElementById('playIcon');
+            const playBtnText = document.getElementById('playBtnText');
+
+            playPauseBtn.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                if (isPlaying) {
+                    playIcon.className = 'fa-solid fa-pause';
+                    playBtnText.textContent = 'Pause Flow';
+                } else {
+                    playIcon.className = 'fa-solid fa-play';
+                    playBtnText.textContent = 'Play Flow';
+                }
+            });
+
+            const speedSlider = document.getElementById('speedSlider');
+            const speedVal = document.getElementById('speedVal');
+            speedSlider.addEventListener('input', (e) => {
+                speed = parseFloat(e.target.value);
+                speedVal.textContent = speed.toFixed(1) + 'x';
+            });
+
+            animate();
+        });
+    </script>
+</body>
+</html>
